@@ -11,6 +11,7 @@
 #include <string>
 #include <vector>
 
+
 using namespace std;
 
 extern void cleanUpScene();
@@ -42,6 +43,11 @@ GLdouble currentTime, deltaTime, lastTime = 0.0f;
 GLfloat	cameraSpeed;
 bool isWireFrame = false;
 
+//Loading object variables
+std::vector< glm::vec3 > temp_vertices;
+std::vector< glm::vec2 > temp_uvs;
+std::vector< glm::vec3 > temp_normals;
+std::vector< unsigned int > vertIndices, uvIndices, normIndices;
 
 float starting_object[] = {
 		-0.25f, -0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
@@ -87,7 +93,7 @@ float starting_object[] = {
 		-0.25f,  0.25f, -0.25f,  0.0f,  1.0f,  0.0f
 };
 
-glm::vec3 cameraPosition = glm::vec3(1.0f, 1.0f, 2.0f);
+glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 2.0f);
 glm::vec3 cameraMovingX = glm::vec3(-1.0f, 0.0f, 0.0f);
 glm::vec3 cameraMovingY = glm::vec3(0.0f, 1.0f, 0.0f);
 glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -217,8 +223,64 @@ void computeCameraMatrix() {
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
 }
 
+bool processFile(FILE* objectFile, char* starting_charachter) {
+	if (strcmp(starting_charachter, "v") == 0) {
+		glm::vec3 vert;
+		int result = fscanf(objectFile, "%f %f %f\n", &vert.x, &vert.y, &vert.z);
+		if(result>0) temp_vertices.push_back(vert);
+	}
+	else if (strcmp(starting_charachter, "vn") == 0) {
+		glm::vec3 norm;
+		int result = fscanf(objectFile, "%f %f %f\n", &norm.x, &norm.y, &norm.z);
+		if (result > 0) temp_normals.push_back(norm);
+	}
+	else if (strcmp(starting_charachter, "vt") == 0) {
+		glm::vec2 uv;
+		int result = fscanf(objectFile, "%f %f\n", &uv.x, &uv.y);
+		if (result > 0) temp_uvs.push_back(uv);
+	}
+	else if (strcmp(starting_charachter, "f") == 0) {
+		std::string vert1, vert2, vert3;
+		unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
+		int result = fscanf(objectFile, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+		if (result < 1) {
+			printf("File can't be read with this parser \n");
+			return false;
+		}
+		return true;
+	}
+	return true;
+}
+
+bool loadFile() {//(std::vector < glm::vec3 >& vertices_out, std::vector < glm::vec2 >& uvs_out, std::vector < glm::vec3 >& normals_out) {
+
+	FILE* objectFile = fopen("test.obj", "r");
+	if (objectFile == NULL) {
+		cout << "Unable to open the file /n";
+		return false;
+	}
+
+	while (1) {
+
+		char starting_charachter[256];
+
+		int result = fscanf(objectFile, "%s", starting_charachter);
+		if (result == EOF)
+			break;
+
+		bool processResult = processFile(objectFile, starting_charachter);
+		if (processResult == false) {
+			cout << "Failure during file processing";
+			break;
+		} 
+
+
+	}
+}
+
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
+	loadFile();
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);
@@ -305,8 +367,11 @@ void display() {
 	glUniformMatrix4fv(invTMatrixLocation, 1, GL_FALSE, glm::value_ptr(invTmatrix));
 	glUniform3fv(lightPositionLocation, 1, glm::value_ptr(lightPosition));
 	glBindVertexArray(VAO[0]);
+
+	//Wireframe váltás
 	if (isWireFrame) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
 	glDrawArrays(GL_TRIANGLES, 0, sizeof(starting_object));
 
 	glBindVertexArray(0);

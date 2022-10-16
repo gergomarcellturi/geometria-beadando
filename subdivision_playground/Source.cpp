@@ -29,6 +29,10 @@ unsigned int	projectionLocation;
 unsigned int	invTMatrixLocation;
 unsigned int	lightPositionLocation;
 
+std::vector< glm::vec3 > vertices;
+std::vector< glm::vec2 > uvs;
+std::vector< glm::vec3 > normals;
+
 #define numVBOs	1
 #define numVAOs	1
 
@@ -241,25 +245,30 @@ bool processFile(FILE* objectFile, char* starting_charachter) {
 	}
 	else if (strcmp(starting_charachter, "f") == 0) {
 		std::string vert1, vert2, vert3;
-		unsigned int vertexIndex[3], uvIndex[3], normalIndex[3];
-		int result = fscanf(objectFile, "%d/%d/%d %d/%d/%d %d/%d/%d\n", &vertexIndex[0], &uvIndex[0], &normalIndex[0], &vertexIndex[1], &uvIndex[1], &normalIndex[1], &vertexIndex[2], &uvIndex[2], &normalIndex[2]);
+		unsigned int vertIndex[3], uvIndex[3], normIndex[3];
+		int result = fscanf(objectFile, "%d/%d/%d %d/%d/%d %d/%d/%d\n",
+			&vertIndex[0], &uvIndex[0], &normIndex[0], &vertIndex[1], &uvIndex[1], &normIndex[1], &vertIndex[2], &uvIndex[2], &normIndex[2]);
 		if (result < 1) {
 			printf("File can't be read with this parser \n");
 			return false;
 		}
-		return true;
+		for (int i = 0; i < 3; i++) {
+			vertIndices.push_back(vertIndex[i]);
+			uvIndices.push_back(uvIndex[i]);
+			normIndices.push_back(normIndex[i]);
+		}
 	}
-	return true;
 }
 
-bool loadFile() {//(std::vector < glm::vec3 >& vertices_out, std::vector < glm::vec2 >& uvs_out, std::vector < glm::vec3 >& normals_out) {
+bool loadFile(std::vector < glm::vec3 >& vertices_out, std::vector < glm::vec2 >& uvs_out, std::vector < glm::vec3 >& normals_out) {
 
-	FILE* objectFile = fopen("test.obj", "r");
+	FILE* objectFile = fopen("spider.obj", "r");
 	if (objectFile == NULL) {
 		cout << "Unable to open the file /n";
 		return false;
 	}
 
+	//Beolvassuk a filet
 	while (1) {
 
 		char starting_charachter[256];
@@ -273,14 +282,23 @@ bool loadFile() {//(std::vector < glm::vec3 >& vertices_out, std::vector < glm::
 			cout << "Failure during file processing";
 			break;
 		} 
-
-
 	}
+
+	/*
+	for (unsigned int i = 0; i < vertIndices.size(); i++) {
+		unsigned int indexV = vertIndices[i];
+		glm::vec3 vertex = temp_vertices[indexV - 1];
+		vertices_out.push_back(vertex);
+	}*/
+	
 }
 
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
-	loadFile();
+
+	bool result = loadFile(vertices, uvs, normals);
+
+	//TODO: Work with loaded file
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);

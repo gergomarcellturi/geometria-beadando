@@ -21,5 +21,6 @@ void main(void)
 
     vec3 colorAttribute = vec3(1.0, 0.6, 0.8);        
     vec3 result = (ambient + diffuse) * colorAttribute;
+    //vec3 = colorAttribute;
     color = vec4(result, 1.0);
 }

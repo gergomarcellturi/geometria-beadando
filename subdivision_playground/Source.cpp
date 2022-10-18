@@ -29,9 +29,13 @@ unsigned int	projectionLocation;
 unsigned int	invTMatrixLocation;
 unsigned int	lightPositionLocation;
 
-std::vector< glm::vec3 > vertices;
-std::vector< glm::vec2 > uvs;
-std::vector< glm::vec3 > normals;
+std::vector< glm::vec3 > loaded_vertices;
+std::vector< glm::vec3 > loaded_normals;
+
+std::vector< glm::vec3 > temp_vertices;
+std::vector< glm::vec2 > temp_uvs;
+std::vector< glm::vec3 > temp_normals;
+std::vector< unsigned int > vertIndices, uvIndices, normIndices;
 
 #define numVBOs	1
 #define numVAOs	1
@@ -47,57 +51,95 @@ GLdouble currentTime, deltaTime, lastTime = 0.0f;
 GLfloat	cameraSpeed;
 bool isWireFrame = false;
 
-//Loading object variables
-std::vector< glm::vec3 > temp_vertices;
-std::vector< glm::vec2 > temp_uvs;
-std::vector< glm::vec3 > temp_normals;
-std::vector< unsigned int > vertIndices, uvIndices, normIndices;
+float starting_vertices[] = {
+		-0.25f, -0.25f, -0.25f,
+		 0.25f, -0.25f, -0.25f,
+		 0.25f,  0.25f, -0.25f,
+		 0.25f,  0.25f, -0.25f,
+		-0.25f,  0.25f, -0.25f,
+		-0.25f, -0.25f, -0.25f, 
 
-float starting_object[] = {
-		-0.25f, -0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
-		 0.25f, -0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
-		 0.25f,  0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
-		 0.25f,  0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
-		-0.25f,  0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
-		-0.25f, -0.25f, -0.25f,  0.0f,  0.0f, -1.0f,
+		-0.25f, -0.25f,  0.25f, 
+		 0.25f, -0.25f,  0.25f,  
+		 0.25f,  0.25f,  0.25f,
+		 0.25f,  0.25f,  0.25f, 
+		-0.25f,  0.25f,  0.25f, 
+		-0.25f, -0.25f,  0.25f, 
 
-		-0.25f, -0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
-		 0.25f, -0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
-		 0.25f,  0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
-		 0.25f,  0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
-		-0.25f,  0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
-		-0.25f, -0.25f,  0.25f,  0.0f,  0.0f, 1.0f,
+		-0.25f,  0.25f,  0.25f, 
+		-0.25f,  0.25f, -0.25f, 
+		-0.25f, -0.25f, -0.25f,
+		-0.25f, -0.25f, -0.25f,
+		-0.25f, -0.25f,  0.25f,
+		-0.25f,  0.25f,  0.25f,
 
-		-0.25f,  0.25f,  0.25f,  -1.0f,  0.0f,  0.0f,
-		-0.25f,  0.25f, -0.25f,  -1.0f,  0.0f,  0.0f,
-		-0.25f, -0.25f, -0.25f,  -1.0f,  0.0f,  0.0f,
-		-0.25f, -0.25f, -0.25f,  -1.0f,  0.0f,  0.0f,
-		-0.25f, -0.25f,  0.25f,  -1.0f,  0.0f,  0.0f,
-		-0.25f,  0.25f,  0.25f,  -1.0f,  0.0f,  0.0f,
+		 0.25f,  0.25f,  0.25f,
+		 0.25f,  0.25f, -0.25f,  
+		 0.25f, -0.25f, -0.25f,  
+		 0.25f, -0.25f, -0.25f, 
+		 0.25f, -0.25f,  0.25f,
+		 0.25f,  0.25f,  0.25f, 
 
-		 0.25f,  0.25f,  0.25f,  1.0f,  0.0f,  0.0f,
-		 0.25f,  0.25f, -0.25f,  1.0f,  0.0f,  0.0f,
-		 0.25f, -0.25f, -0.25f,  1.0f,  0.0f,  0.0f,
-		 0.25f, -0.25f, -0.25f,  1.0f,  0.0f,  0.0f,
-		 0.25f, -0.25f,  0.25f,  1.0f,  0.0f,  0.0f,
-		 0.25f,  0.25f,  0.25f,  1.0f,  0.0f,  0.0f,
+		-0.25f, -0.25f, -0.25f,
+		 0.25f, -0.25f, -0.25f,  
+		 0.25f, -0.25f,  0.25f, 
+		 0.25f, -0.25f,  0.25f, 
+		-0.25f, -0.25f,  0.25f, 
+		-0.25f, -0.25f, -0.25f, 
 
-		-0.25f, -0.25f, -0.25f,  0.0f, -1.0f,  0.0f,
-		 0.25f, -0.25f, -0.25f,  0.0f, -1.0f,  0.0f,
-		 0.25f, -0.25f,  0.25f,  0.0f, -1.0f,  0.0f,
-		 0.25f, -0.25f,  0.25f,  0.0f, -1.0f,  0.0f,
-		-0.25f, -0.25f,  0.25f,  0.0f, -1.0f,  0.0f,
-		-0.25f, -0.25f, -0.25f,  0.0f, -1.0f,  0.0f,
-
-		-0.25f,  0.25f, -0.25f,  0.0f,  1.0f,  0.0f,
-		 0.25f,  0.25f, -0.25f,  0.0f,  1.0f,  0.0f,
-		 0.25f,  0.25f,  0.25f,  0.0f,  1.0f,  0.0f,
-		 0.25f,  0.25f,  0.25f,  0.0f,  1.0f,  0.0f,
-		-0.25f,  0.25f,  0.25f,  0.0f,  1.0f,  0.0f,
-		-0.25f,  0.25f, -0.25f,  0.0f,  1.0f,  0.0f
+		-0.25f,  0.25f, -0.25f, 
+		 0.25f,  0.25f, -0.25f,  
+		 0.25f,  0.25f,  0.25f, 
+		 0.25f,  0.25f,  0.25f, 
+		-0.25f,  0.25f,  0.25f, 
+		-0.25f,  0.25f, -0.25f,  
 };
 
-glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 2.0f);
+float starting_normals[] = {
+	 0.0f,  0.0f, -1.0f,
+	 0.0f,  0.0f, -1.0f,
+	 0.0f,  0.0f, -1.0f,
+	 0.0f,  0.0f, -1.0f,
+	 0.0f,  0.0f, -1.0f,
+	 0.0f,  0.0f, -1.0f,
+
+	 0.0f,  0.0f, 1.0f,
+	 0.0f,  0.0f, 1.0f,
+	 0.0f,  0.0f, 1.0f,
+	 0.0f,  0.0f, 1.0f,
+	 0.0f,  0.0f, 1.0f,
+	 0.0f,  0.0f, 1.0f,
+
+	-1.0f,  0.0f,  0.0f,
+	-1.0f,  0.0f,  0.0f,
+	-1.0f,  0.0f,  0.0f,
+	-1.0f,  0.0f,  0.0f,
+	-1.0f,  0.0f,  0.0f,
+	-1.0f,  0.0f,  0.0f,
+
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+	1.0f,  0.0f,  0.0f,
+
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+	0.0f, -1.0f,  0.0f,
+
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+	0.0f,  1.0f,  0.0f,
+};
+
+glm::vec3 cameraPosition = glm::vec3(2.0f, 5.0f, 5.0f);
 glm::vec3 cameraMovingX = glm::vec3(-1.0f, 0.0f, 0.0f);
 glm::vec3 cameraMovingY = glm::vec3(0.0f, 1.0f, 0.0f);
 glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
@@ -231,7 +273,7 @@ bool processFile(FILE* objectFile, char* starting_charachter) {
 	if (strcmp(starting_charachter, "v") == 0) {
 		glm::vec3 vert;
 		int result = fscanf(objectFile, "%f %f %f\n", &vert.x, &vert.y, &vert.z);
-		if(result>0) temp_vertices.push_back(vert);
+		if (result > 0) temp_vertices.push_back(vert);
 	}
 	else if (strcmp(starting_charachter, "vn") == 0) {
 		glm::vec3 norm;
@@ -258,11 +300,12 @@ bool processFile(FILE* objectFile, char* starting_charachter) {
 			normIndices.push_back(normIndex[i]);
 		}
 	}
+	return true;
 }
 
-bool loadFile(std::vector < glm::vec3 >& vertices_out, std::vector < glm::vec2 >& uvs_out, std::vector < glm::vec3 >& normals_out) {
+bool loadFile() {
 
-	FILE* objectFile = fopen("spider.obj", "r");
+	FILE* objectFile = fopen("test.obj", "r");
 	if (objectFile == NULL) {
 		cout << "Unable to open the file /n";
 		return false;
@@ -280,41 +323,41 @@ bool loadFile(std::vector < glm::vec3 >& vertices_out, std::vector < glm::vec2 >
 		bool processResult = processFile(objectFile, starting_charachter);
 		if (processResult == false) {
 			cout << "Failure during file processing";
-			break;
-		} 
+			return false;
+		}
 	}
 
-	/*
 	for (unsigned int i = 0; i < vertIndices.size(); i++) {
 		unsigned int indexV = vertIndices[i];
 		glm::vec3 vertex = temp_vertices[indexV - 1];
-		vertices_out.push_back(vertex);
-	}*/
-	
+		loaded_vertices.push_back(vertex);
+	}
+
+	return true;
 }
 
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
 
-	bool result = loadFile(vertices, uvs, normals);
-
-	//TODO: Work with loaded file
+	bool result = loadFile();
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
 
-	glBufferData(GL_ARRAY_BUFFER, sizeof(starting_object), starting_object, GL_STATIC_DRAW);
+	if (result == false) {
+		glBufferData(GL_ARRAY_BUFFER, sizeof(starting_vertices), starting_vertices, GL_STATIC_DRAW);
+	}
+
+	else {
+		glBufferData(GL_ARRAY_BUFFER, loaded_vertices.size() * sizeof(glm::vec3), &loaded_vertices[0], GL_STATIC_DRAW);
+	}
 
 	glBindVertexArray(VAO[0]);
 
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
-
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-	glEnableVertexAttribArray(1);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -390,7 +433,8 @@ void display() {
 	if (isWireFrame) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-	glDrawArrays(GL_TRIANGLES, 0, sizeof(starting_object));
+	if(loaded_vertices.size()>0) glDrawArrays(GL_TRIANGLES, 0, loaded_vertices.size());
+	else glDrawArrays(GL_TRIANGLES, 0, sizeof(starting_vertices));
 
 	glBindVertexArray(0);
 }

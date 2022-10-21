@@ -114,6 +114,9 @@
       </AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;glew32.lib;soil2-debug.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y /d  "$(SolutionDir)\OpenGLTemplate\*.dll" "$(TargetDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -151,6 +154,9 @@
       </AdditionalLibraryDirectories>
       <AdditionalDependencies>glfw3.lib;glew32.lib;soil2-debug.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>xcopy /y /d  "$(SolutionDir)\OpenGLTemplate\*.dll" "$(TargetDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Source.cpp" />

@@ -10,6 +10,9 @@
 #include <math.h>
 #include <string>
 #include <vector>
+#include "imgui/imgui.h"
+#include "imgui/imgui_impl_glfw.h"
+#include "imgui/imgui_impl_opengl3.h"
 
 
 using namespace std;
@@ -50,6 +53,10 @@ glm::mat4 invTmatrix, rotateM, scaleM;
 GLdouble currentTime, deltaTime, lastTime = 0.0f;
 GLfloat	cameraSpeed;
 bool isWireFrame = false;
+int selectedRenderMode;
+
+unsigned int framebuffer;
+unsigned int textureColorbuffer;
 
 float starting_vertices[] = {
 		-0.25f, -0.25f, -0.25f,
@@ -339,6 +346,15 @@ bool loadFile() {
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
 
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glGenTextures(1, &textureColorbuffer);
+	glBindTexture(GL_TEXTURE_2D, textureColorbuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, window_width, window_height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+
 	bool result = loadFile();
 
 	glGenBuffers(numVBOs, VBO);
@@ -375,9 +391,31 @@ void init(GLFWwindow* window) {
 	glClearColor(0.0, 0.0, 0.0, 1.0);
 
 	glEnable(GL_DEPTH_TEST);
+
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+	io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+	ImGui::StyleColorsDark();
+	ImGuiStyle& style = ImGui::GetStyle();
+	if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+	{
+		style.WindowRounding = 0.0f;
+		style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+	}
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 430");
 }
 
 void cleanUpScene() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	glfwDestroyWindow(window);
 	glDeleteVertexArrays(numVAOs, VAO);
 	glDeleteBuffers(numVBOs, VBO);
@@ -387,7 +425,24 @@ void cleanUpScene() {
 	exit(EXIT_SUCCESS);
 }
 
+void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
+	window_width = width;
+	window_height = height;
+
+	glViewport(0, 0, width, height);
+
+	projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 100.0f);
+	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+}
+
+void handleFrambufferResize(int width, int height)
+{
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	framebufferSizeCallback(window, width, height);
+}
+
 void display() {
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	currentTime = glfwGetTime();
@@ -429,24 +484,89 @@ void display() {
 	glUniform3fv(lightPositionLocation, 1, glm::value_ptr(lightPosition));
 	glBindVertexArray(VAO[0]);
 
-	//Wireframe váltás
-	if (isWireFrame) glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-	else glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-
 	if(loaded_vertices.size()>0) glDrawArrays(GL_TRIANGLES, 0, loaded_vertices.size());
 	else glDrawArrays(GL_TRIANGLES, 0, sizeof(starting_vertices));
 
 	glBindVertexArray(0);
-}
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-void framebufferSizeCallback(GLFWwindow* window, int width, int height) {
-	window_width = width;
-	window_height = height;
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
 
-	glViewport(0, 0, width, height);
+	bool* p_open = NULL;
 
-	projection = glm::perspective(glm::radians(45.0f), (float)window_width / (float)window_height, 0.1f, 100.0f);
-	glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+	bool opt_fullscreen = true;
+	bool opt_padding = false;
+	ImGuiDockNodeFlags dockspace_flags = ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_AutoHideTabBar;
+
+	ImGuiWindowFlags window_flags = ImGuiWindowFlags_MenuBar | ImGuiWindowFlags_NoDocking;
+	if (opt_fullscreen)
+	{
+		const ImGuiViewport* viewport = ImGui::GetMainViewport();
+		ImGui::SetNextWindowPos(viewport->WorkPos);
+		ImGui::SetNextWindowSize(viewport->WorkSize);
+		ImGui::SetNextWindowViewport(viewport->ID);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+		window_flags |= ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove;
+		window_flags |= ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+	}
+	else
+	{
+		dockspace_flags &= ~ImGuiDockNodeFlags_PassthruCentralNode;
+	}
+
+
+	if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
+		window_flags |= ImGuiWindowFlags_NoBackground;
+	window_flags = ImGuiWindowFlags_NoDecoration;
+
+	if (!opt_padding)
+		ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("DockSpace", p_open, window_flags);
+	if (!opt_padding)
+		ImGui::PopStyleVar();
+
+	if (opt_fullscreen)
+		ImGui::PopStyleVar(2);
+
+	ImGuiIO& io = ImGui::GetIO();
+	if (io.ConfigFlags & ImGuiConfigFlags_DockingEnable)
+	{
+		ImGuiID dockspace_id = ImGui::GetID("DockSpace");
+		ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), dockspace_flags);
+	}
+
+	ImGui::End();
+
+	ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
+	ImGui::Begin("Scene");
+	ImGui::PopStyleVar();
+	ImVec2 wsize = ImGui::GetWindowSize();
+	handleFrambufferResize(wsize.x, wsize.y);
+	ImGui::Image((ImTextureID)textureColorbuffer, wsize, ImVec2(0, 1), ImVec2(1, 0));
+	ImGui::End();
+	
+	ImGui::Begin("tab");
+	const char* options[]{"Fill", "Wireframe"};
+	selectedRenderMode = isWireFrame;
+	ImGui::Combo("polygon mode", &selectedRenderMode, options, 2);
+	if (selectedRenderMode == 0)
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+	else
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	ImGui::End();
+
+	ImGui::EndFrame();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+
+	GLFWwindow* backup_current_context = glfwGetCurrentContext();
+	ImGui::UpdatePlatformWindows();
+	ImGui::RenderPlatformWindowsDefault();
+	glfwMakeContextCurrent(backup_current_context);
 }
 
 int main(void) {

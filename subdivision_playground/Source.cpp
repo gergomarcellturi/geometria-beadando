@@ -21,6 +21,7 @@ extern void cleanUpScene();
 
 GLFWwindow* window;
 GLboolean		keyboard[512] = { GL_FALSE };
+GLboolean		mouse[7] = { GL_FALSE };
 
 int				window_width = 600;
 int				window_height = 600;
@@ -31,6 +32,9 @@ unsigned int	modelLocation;
 unsigned int	projectionLocation;
 unsigned int	invTMatrixLocation;
 unsigned int	lightPositionLocation;
+const float RADIUS = 1.0f;
+bool flag = false;
+
 
 std::vector< glm::vec3 > loaded_vertices;
 std::vector< glm::vec3 > loaded_normals;
@@ -52,12 +56,125 @@ glm::mat4 invTmatrix, rotateM, scaleM;
 
 GLdouble currentTime, deltaTime, lastTime = 0.0f;
 GLfloat	cameraSpeed;
+double prevMousePosX, prevMousePosY;
 bool isWireFrame = false;
 int selectedRenderMode;
 
 unsigned int framebuffer;
 unsigned int textureColorbuffer;
 
+struct Quaternion {
+	float cosine;
+	glm::vec3 axis;
+
+};
+
+class ArcballCamera {
+public:
+
+	glm::vec3 position = glm::vec3(0.0f, 0.0f, -5.0f);
+	glm::vec3 startPos;
+	glm::vec3 currentPos = startPos;
+	glm::vec3 startPosUnitVector;
+	glm::vec3 currentPosUnitVector;
+
+	Quaternion currentQuaternion;
+	Quaternion lastQuaternion = { 0.0f, glm::vec3(1.0f, 0.0f, 0.0f) };
+
+	float cosValue, cosValue_2;
+	float theta;
+	float angle = 180.0f;
+	glm::vec3 rotationalAxis = glm::vec3(1.0f, 0.0f, 0.0f);
+	glm::vec3 rotationalAxis_2;
+	ArcballCamera() {};
+	float z_axis(float, float);
+	glm::vec3 getUnitVector(glm::vec3);
+	float dotProduct();
+	void rotation();
+	void replace();
+
+
+};
+
+float ArcballCamera::z_axis(float x, float y) {
+	float z = 0;
+	if (sqrt((x * x) + (y * y)) <= RADIUS) z = (float)sqrt((RADIUS * RADIUS) - (x * x) - (y * y));
+	return z;
+}
+
+glm::vec3 ArcballCamera::getUnitVector(glm::vec3 vectr) {
+	float magnitude1;
+	glm::vec3 unitVector;
+	magnitude1 = (vectr.x * vectr.x) + (vectr.y * vectr.y) + (vectr.z * vectr.z);
+	magnitude1 = sqrt(magnitude1);
+	if (magnitude1 == 0) {
+		unitVector.x = 0;
+		unitVector.y = 0;
+		unitVector.z = 0;
+	}
+	else {
+		unitVector.x = vectr.x / magnitude1;
+		unitVector.y = vectr.y / magnitude1;
+		unitVector.z = vectr.z / magnitude1;
+	}
+	return unitVector;
+}
+
+float ArcballCamera::dotProduct() {
+	float result = (startPosUnitVector.x * currentPosUnitVector.x) + (startPosUnitVector.y * currentPosUnitVector.y) + (startPosUnitVector.z * currentPosUnitVector.z);
+	return result;
+}
+
+void ArcballCamera::rotation() {
+	startPosUnitVector = getUnitVector(startPos);
+	currentPosUnitVector = getUnitVector(currentPos);
+	currentQuaternion.axis = glm::cross(startPos, currentPos);
+	currentQuaternion.axis = getUnitVector(currentQuaternion.axis);
+
+	cosValue = dotProduct();
+	if (cosValue > 1) cosValue = 1;
+	theta = (acos(cosValue) * 180 / 3.1416);
+	currentQuaternion.cosine = cos((theta / 2) * 3.1416 / 180);
+
+	currentQuaternion.axis.x = currentQuaternion.axis.x * sin((theta / 2) * 3.1416 / 180);
+	currentQuaternion.axis.y = currentQuaternion.axis.y * sin((theta / 2) * 3.1416 / 180);
+	currentQuaternion.axis.z = currentQuaternion.axis.z * sin((theta / 2) * 3.1416 / 180);
+
+	cosValue_2 = (currentQuaternion.cosine * lastQuaternion.cosine)
+		- glm::dot(currentQuaternion.axis, lastQuaternion.axis);
+
+
+	glm::vec3 temporaryVector;
+
+	temporaryVector = glm::cross(currentQuaternion.axis, lastQuaternion.axis);
+
+
+	rotationalAxis_2.x = (currentQuaternion.cosine * lastQuaternion.axis.x) +
+		(lastQuaternion.cosine * currentQuaternion.axis.x) +
+		temporaryVector.x;
+
+	rotationalAxis_2.y = (currentQuaternion.cosine * lastQuaternion.axis.y) +
+		(lastQuaternion.cosine * currentQuaternion.axis.y) +
+		temporaryVector.y;
+
+	rotationalAxis_2.z = (currentQuaternion.cosine * lastQuaternion.axis.z) +
+		(lastQuaternion.cosine * currentQuaternion.axis.z) +
+		temporaryVector.z;
+
+	angle = (acos(cosValue_2) * 180 / 3.1416) * 2;
+
+	rotationalAxis.x = rotationalAxis_2.x / sin((angle / 2) * 3.1416 / 180);
+	rotationalAxis.y = rotationalAxis_2.y / sin((angle / 2) * 3.1416 / 180);
+	rotationalAxis.z = rotationalAxis_2.z / sin((angle / 2) * 3.1416 / 180);
+}
+
+void ArcballCamera::replace() {
+	lastQuaternion.cosine = cosValue_2;
+	lastQuaternion.axis = rotationalAxis_2;
+}
+
+
+ArcballCamera arcCamera;
 float starting_vertices[] = {
 		-0.25f, -0.25f, -0.25f,
 		 0.25f, -0.25f, -0.25f,
@@ -255,6 +372,52 @@ GLuint createShaderProgram() {
 	return vfProgram;
 }
 
+glm::vec3 get_arcball_vector(int x, int y) {
+	glm::vec3 P = glm::vec3(1.0 * x / window_width * 2 - 1.0,
+		1.0 * y / window_height * 2 - 1.0,
+		0);
+	P.y = -P.y;
+	float OP_squared = P.x * P.x + P.y * P.y;
+	if (OP_squared <= 1 * 1)
+		P.z = sqrt(1 * 1 - OP_squared);
+	else
+		P = glm::normalize(P);
+	return P;
+}
+
+float zAxis(float x, float y) {
+	float radius = 10.0f;
+	float z = 0;
+	if (sqrt((x * x) + (y * y)) <= radius) z = (float)sqrt((radius * radius) - (x * x) - (y * y));
+	return z;
+}
+
+glm::vec3 getUnitVector(glm::vec3 vectr) {
+	float magnitude1;
+	glm::vec3 unitVector;
+	magnitude1 = (vectr.x * vectr.x) + (vectr.y * vectr.y) + (vectr.z * vectr.z);
+	magnitude1 = sqrt(magnitude1);
+	if (magnitude1 == 0) {
+		unitVector.x = 0;
+		unitVector.y = 0;
+		unitVector.z = 0;
+	}
+	else {
+		unitVector.x = vectr.x / magnitude1;
+		unitVector.y = vectr.y / magnitude1;
+		unitVector.z = vectr.z / magnitude1;
+	}
+	return unitVector;
+}
+
+void computeCameraMatrix() {
+	
+	glm::mat4 view = glm::mat4(1.0f);
+	view = glm::translate(view, arcCamera.position);
+	view = glm::rotate(view, glm::radians(arcCamera.angle), arcCamera.rotationalAxis);
+	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
+}
+
 void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
 	if ((action == GLFW_PRESS) && (key == GLFW_KEY_ESCAPE))
@@ -266,14 +429,41 @@ void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods
 		keyboard[key] = GL_FALSE;
 }
 
+void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
+	if (flag == true) {
+		arcCamera.currentPos.x = ((xPos - (window_width / 2)) / (window_width/ 2)) * RADIUS;
+		arcCamera.currentPos.y = (((window_height / 2) - yPos) / (window_height/ 2)) * RADIUS;
+		arcCamera.currentPos.z = arcCamera.z_axis(arcCamera.currentPos.x, arcCamera.currentPos.y);
+		arcCamera.rotation();
+	}
+}
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		
+		double startXPos, startYPos; 
+		glfwGetCursorPos(window, &startXPos, &startYPos);
+		std::cout << startXPos << ", " << startYPos << std::endl;
+		arcCamera.startPos.x = ((startXPos - (window_width / 2)) / (window_width / 2)) * RADIUS; 
+		arcCamera.startPos.y = (((window_height / 2) - startYPos) / (window_height / 2)) * RADIUS;
+		arcCamera.startPos.z = arcCamera.z_axis(arcCamera.startPos.x, arcCamera.startPos.y);
+		flag = true;
+	}
+	else if (action == GLFW_RELEASE) {
+		arcCamera.replace();
+		flag = false;
+
+	}
+}
+
+void mouseScrollCallback(GLFWwindow* window, double xOffset, double yOffset) {
+	arcCamera.position.z += yOffset * 0.5f;
+}
+
 void computeModelMatrix() {
 	model = glm::mat4(1.0f),
 	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
-}
-
-void computeCameraMatrix() {
-	view = glm::lookAt(cameraPosition, cameraTarget, cameraUpVector);
-	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
 }
 
 bool processFile(FILE* objectFile, char* starting_charachter) {
@@ -409,6 +599,7 @@ void init(GLFWwindow* window) {
 	}
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init("#version 430");
+	computeCameraMatrix();
 }
 
 void cleanUpScene() {
@@ -581,6 +772,9 @@ int main(void) {
 	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
 
 	glfwSetKeyCallback(window, keyCallback);
+	glfwSetCursorPosCallback(window, cursorPosCallback);
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+	glfwSetScrollCallback(window, mouseScrollCallback);
 
 	if (glewInit() != GLEW_OK) { exit(EXIT_FAILURE); }
 	glfwSwapInterval(1);

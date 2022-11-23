@@ -57,8 +57,7 @@ glm::mat4 invTmatrix, rotateM, scaleM;
 GLdouble currentTime, deltaTime, lastTime = 0.0f;
 GLfloat	cameraSpeed;
 double prevMousePosX, prevMousePosY;
-bool isWireFrame = false;
-int selectedRenderMode;
+int isWireFrame = false;
 
 unsigned int framebuffer;
 unsigned int textureColorbuffer;
@@ -444,7 +443,6 @@ void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 		
 		double startXPos, startYPos; 
 		glfwGetCursorPos(window, &startXPos, &startYPos);
-		std::cout << startXPos << ", " << startYPos << std::endl;
 		arcCamera.startPos.x = ((startXPos - (window_width / 2)) / (window_width / 2)) * RADIUS; 
 		arcCamera.startPos.y = (((window_height / 2) - startYPos) / (window_height / 2)) * RADIUS;
 		arcCamera.startPos.z = arcCamera.z_axis(arcCamera.startPos.x, arcCamera.startPos.y);
@@ -741,9 +739,8 @@ void display() {
 	
 	ImGui::Begin("tab");
 	const char* options[]{"Fill", "Wireframe"};
-	selectedRenderMode = isWireFrame;
-	ImGui::Combo("polygon mode", &selectedRenderMode, options, 2);
-	if (selectedRenderMode == 0)
+	ImGui::Combo("polygon mode", &isWireFrame, options, 2);
+	if (isWireFrame == 0)
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);

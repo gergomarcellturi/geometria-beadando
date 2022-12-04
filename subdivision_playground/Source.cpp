@@ -180,42 +180,42 @@ float starting_vertices[] = {
 		 0.25f,  0.25f, -0.25f,
 		 0.25f,  0.25f, -0.25f,
 		-0.25f,  0.25f, -0.25f,
-		-0.25f, -0.25f, -0.25f, 
+		-0.25f, -0.25f, -0.25f,
 
-		-0.25f, -0.25f,  0.25f, 
-		 0.25f, -0.25f,  0.25f,  
+		-0.25f, -0.25f,  0.25f,
+		 0.25f, -0.25f,  0.25f,
 		 0.25f,  0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f, 
-		-0.25f,  0.25f,  0.25f, 
-		-0.25f, -0.25f,  0.25f, 
+		 0.25f,  0.25f,  0.25f,
+		-0.25f,  0.25f,  0.25f,
+		-0.25f, -0.25f,  0.25f,
 
-		-0.25f,  0.25f,  0.25f, 
-		-0.25f,  0.25f, -0.25f, 
+		-0.25f,  0.25f,  0.25f,
+		-0.25f,  0.25f, -0.25f,
 		-0.25f, -0.25f, -0.25f,
 		-0.25f, -0.25f, -0.25f,
 		-0.25f, -0.25f,  0.25f,
 		-0.25f,  0.25f,  0.25f,
 
 		 0.25f,  0.25f,  0.25f,
-		 0.25f,  0.25f, -0.25f,  
-		 0.25f, -0.25f, -0.25f,  
-		 0.25f, -0.25f, -0.25f, 
+		 0.25f,  0.25f, -0.25f,
+		 0.25f, -0.25f, -0.25f,
+		 0.25f, -0.25f, -0.25f,
 		 0.25f, -0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f, 
+		 0.25f,  0.25f,  0.25f,
 
 		-0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f, -0.25f,  
-		 0.25f, -0.25f,  0.25f, 
-		 0.25f, -0.25f,  0.25f, 
-		-0.25f, -0.25f,  0.25f, 
-		-0.25f, -0.25f, -0.25f, 
+		 0.25f, -0.25f, -0.25f,
+		 0.25f, -0.25f,  0.25f,
+		 0.25f, -0.25f,  0.25f,
+		-0.25f, -0.25f,  0.25f,
+		-0.25f, -0.25f, -0.25f,
 
-		-0.25f,  0.25f, -0.25f, 
-		 0.25f,  0.25f, -0.25f,  
-		 0.25f,  0.25f,  0.25f, 
-		 0.25f,  0.25f,  0.25f, 
-		-0.25f,  0.25f,  0.25f, 
-		-0.25f,  0.25f, -0.25f,  
+		-0.25f,  0.25f, -0.25f,
+		 0.25f,  0.25f, -0.25f,
+		 0.25f,  0.25f,  0.25f,
+		 0.25f,  0.25f,  0.25f,
+		-0.25f,  0.25f,  0.25f,
+		-0.25f,  0.25f, -0.25f,
 };
 
 float starting_normals[] = {
@@ -410,7 +410,7 @@ glm::vec3 getUnitVector(glm::vec3 vectr) {
 }
 
 void computeCameraMatrix() {
-	
+
 	view = glm::mat4(1.0f);
 	view = glm::translate(view, arcCamera.position);
 	view = glm::rotate(view, glm::radians(arcCamera.angle), arcCamera.rotationalAxis);
@@ -440,10 +440,10 @@ void cursorPosCallback(GLFWwindow* window, double xPos, double yPos) {
 void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
 
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		
-		double startXPos, startYPos; 
+
+		double startXPos, startYPos;
 		glfwGetCursorPos(window, &startXPos, &startYPos);
-		arcCamera.startPos.x = ((startXPos - (window_width / 2)) / (window_width / 2)) * RADIUS; 
+		arcCamera.startPos.x = ((startXPos - (window_width / 2)) / (window_width / 2)) * RADIUS;
 		arcCamera.startPos.y = (((window_height / 2) - startYPos) / (window_height / 2)) * RADIUS;
 		arcCamera.startPos.z = arcCamera.z_axis(arcCamera.startPos.x, arcCamera.startPos.y);
 		flag = true;
@@ -537,6 +537,22 @@ bool loadFile() {
 	return true;
 }
 
+void calculateNormals()
+{
+	loaded_normals.clear();
+
+	for (int i = 0; i < loaded_vertices.size(); i += 3)
+	{
+		const glm::vec3 a = loaded_vertices[i + 2] - loaded_vertices[i];
+		const glm::vec3 b = loaded_vertices[i + 1] - loaded_vertices[i];
+		const glm::vec3 normal = glm::normalize(glm::cross(a, b)) * glm::vec3(-1, -1, -1);
+		loaded_normals.push_back(normal);
+		loaded_normals.push_back(normal);
+		loaded_normals.push_back(normal);
+	}
+}
+
+
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
 
@@ -557,6 +573,7 @@ void init(GLFWwindow* window) {
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebuffer);
 
 	bool result = loadFile();
+	calculateNormals();
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);
@@ -754,7 +771,7 @@ void display() {
 	handleFrambufferResize(wsize.x, wsize.y);
 	ImGui::Image((ImTextureID)textureColorbuffer, wsize, ImVec2(0, 1), ImVec2(1, 0));
 	ImGui::End();
-	
+
 	ImGui::Begin("tab");
 	const char* options[]{"Fill", "Wireframe"};
 	ImGui::Combo("polygon mode", &isWireFrame, options, 2);

@@ -44,7 +44,7 @@ std::vector< glm::vec2 > temp_uvs;
 std::vector< glm::vec3 > temp_normals;
 std::vector< unsigned int > vertIndices, uvIndices, normIndices;
 
-#define numVBOs	1
+#define numVBOs	2
 #define numVAOs	1
 
 GLuint VBO[numVBOs];
@@ -411,7 +411,7 @@ glm::vec3 getUnitVector(glm::vec3 vectr) {
 
 void computeCameraMatrix() {
 	
-	glm::mat4 view = glm::mat4(1.0f);
+	view = glm::mat4(1.0f);
 	view = glm::translate(view, arcCamera.position);
 	view = glm::rotate(view, glm::radians(arcCamera.angle), arcCamera.rotationalAxis);
 	glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
@@ -528,11 +528,23 @@ bool loadFile() {
 		loaded_vertices.push_back(vertex);
 	}
 
+	for (unsigned int i = 0; i < normIndices.size(); i++) {
+		unsigned int indexN = normIndices[i];
+		glm::vec3 normal = temp_normals[indexN - 1];
+		loaded_normals.push_back(normal);
+	}
+
 	return true;
 }
 
 void init(GLFWwindow* window) {
 	renderingProgram = createShaderProgram();
+
+	GLuint rboId;
+	glGenRenderbuffers(1, &rboId);
+	glBindRenderbuffer(GL_RENDERBUFFER, rboId);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, window_width, window_height);
+	glBindRenderbuffer(GL_RENDERBUFFER, 0);
 
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
@@ -542,6 +554,7 @@ void init(GLFWwindow* window) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebuffer);
 
 	bool result = loadFile();
 
@@ -562,6 +575,11 @@ void init(GLFWwindow* window) {
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+	glBufferData(GL_ARRAY_BUFFER, loaded_normals.size() * sizeof(glm::vec3), &loaded_normals[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
 
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

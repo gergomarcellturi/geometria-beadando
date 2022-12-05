@@ -60,7 +60,7 @@ void Mesh::deleteMesh()
 void Mesh::subdivision(std::string path, int steps)
 {
     deleteMesh();
-    loadFile(path);
+    loadOBJ(path);
     initMesh();
 
     for (int i = 0; i < steps; i++)
@@ -107,101 +107,48 @@ void Mesh::draw()
     glDrawArrays(GL_TRIANGLES, 0, vertexTriagnleList.size());
 }
 
-bool Mesh::loadFile(const std::string& filename)
+bool Mesh::loadOBJ(const std::string& path)
 {
-    std::string::size_type idx;
-    idx = filename.rfind('.');
-
-    if (idx != std::string::npos) {
-        std::string extension = filename.substr(idx + 1);
-        if (extension == "obj") {
-            return loadObject(filename);
-        }
-        else {
-            std::cerr << "ERROR: unable to load file " << filename
-                << "  -- unknown extension." << std::endl;
-            std::cerr << "Input only (.obj) files" << std::endl;
-        }
-    }
-    return false;
-}
-
-bool Mesh::loadObject(const std::string& filename)
-{
-    std::ifstream ifs(filename.c_str());
-    std::vector<glm::vec3> temp_vertices;
-    std::vector<glm::vec3> temp_normals;
-    std::vector<glm::vec3> temp_textures;
-
-    if (ifs.is_open())
+    FILE* objectFile = fopen(path.c_str(), "r");
+    if (objectFile == NULL)
     {
-        int t0[3], t1[3], t2[3], t3[3];
-        float v0, v1, v2;
-        std::string line;
-        char temp[3];
+        std::cout << "Unable to open the file /n";
+        return false;
+    }
 
-        while (std::getline(ifs, line))
+    while (1) {
+
+        char starting_charachter[256];
+
+        int result = fscanf(objectFile, "%s", starting_charachter);
+        if (result == EOF)
+            break;
+
+        if (strcmp(starting_charachter, "v") == 0)
         {
-            if (line[0] == 'v' && line[1] == ' ')
+            glm::vec3 vert;
+            int result = fscanf(objectFile, "%f %f %f\n", &vert.x, &vert.y, &vert.z);
+            Vertex* v = new Vertex(vert);
+            vertices.push_back(v);
+        }
+        else if (strcmp(starting_charachter, "f") == 0)
+        {
+            std::string vert1, vert2, vert3;
+            unsigned int vertIndex[3], uvIndex[3], normIndex[3];
+            int result = fscanf(objectFile, "%d/%d/%d %d/%d/%d %d/%d/%d\n",
+                &vertIndex[0], &uvIndex[0], &normIndex[0], &vertIndex[1], &uvIndex[1], &normIndex[1], &vertIndex[2], &uvIndex[2], &normIndex[2]);
+            if (result < 1)
             {
-                sscanf(line.c_str(), "%s %f %f %f", temp, &v0, &v1, &v2);
-                glm::vec3 vector(v0, v1, v2);
-                temp_vertices.push_back(vector);
-                Vertex* v = new Vertex(vector);
-                vertices.push_back(v);
+                printf("File can't be read with this parser \n");
+                return false;
             }
-            else if (line[0] == 'v' && line[1] == 'n')
-            {
-                sscanf(line.c_str(), "%s %f %f %f", temp, &v0, &v1, &v2);
-                glm::vec3 vector(v0, v1, v2);
-                temp_normals.push_back(vector);
-            }
-            else if (line[0] == 'v' && line[1] == 't')
-            {
-                sscanf(line.c_str(), "%s %f %f %f", temp, &v0, &v1, &v2);
-                glm::vec3 vector(v0, v1, v2);
-                temp_textures.push_back(vector);
-            }
-            else if (line[0] == 'f')
-            {
-                t0[0] = t0[1] = t0[2] = t1[0] = t1[1] = t1[2] = t2[0] = t2[1] = t2[2] = t3[0] = t3[1] = t3[2] = -1;
 
-                if (line.find("//") != std::string::npos)
-                {
-                    sscanf(line.c_str(), "%s %d//%d %d//%d %d//%d %d//%d",
-                        temp, &t0[0], &t0[2],
-                        &t1[0], &t1[2],
-                        &t2[0], &t2[2],
-                        &t3[0], &t3[2]);
+            std::vector<int> face;
+            face.push_back(vertIndex[0] - 1);
+            face.push_back(vertIndex[1] - 1);
+            face.push_back(vertIndex[2] - 1);
 
-                }
-                else if (line.find("/") != std::string::npos)
-                {
-                    int total = sscanf(line.c_str(), "%s %d/%d/%d %d/%d/%d %d/%d/%d %d/%d/%d",
-                        temp, &t0[0], &t0[1], &t0[2],
-                        &t1[0], &t1[1], &t1[2],
-                        &t2[0], &t2[1], &t2[2],
-                        &t3[0], &t3[1], &t3[2]);
-
-                    if (total < 10)
-                    {
-                        sscanf(line.c_str(), "%s %d/%d %d/%d %d/%d %d/%d", temp, &t0[0],
-                            &t0[1], &t1[0], &t1[1], &t2[0], &t2[1], &t3[0], &t3[1]);
-                    }
-
-                }
-                else
-                {
-                    sscanf(line.c_str(), "%s %d %d %d %d", temp, &t0[0], &t1[0], &t2[0], &t3[0]);
-                }
-
-                std::vector<int> face;
-                face.push_back(t0[0] - 1);
-                face.push_back(t1[0] - 1);
-                face.push_back(t2[0] - 1);
-
-                vertexIndices.push_back(face);
-            }
+            vertexIndices.push_back(face);
         }
     }
     return true;

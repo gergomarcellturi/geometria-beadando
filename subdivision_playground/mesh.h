@@ -58,8 +58,7 @@ public:
     void draw();
 
     std::vector<std::vector<int>> vertexIndices;
-    bool loadFile(const std::string& filename);
-    bool loadObject(const std::string& filename);
+    bool loadOBJ(const std::string& path);
 
     void initMesh();
     void makeFace(std::vector<Vertex*>& fvertices, std::vector<HalfEdge*>& tempEdges, std::vector<Face*>& tempFaces);

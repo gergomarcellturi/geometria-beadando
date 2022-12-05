@@ -55,7 +55,7 @@ unsigned int framebuffer;
 unsigned int textureColorbuffer;
 Mesh* object;
 std::vector<std::string> files;
-int selectedModel = 2;
+int selectedModel = 0;
 int subdivisionSteps = 0;
 
 struct Quaternion {
@@ -397,7 +397,7 @@ void init(GLFWwindow* window) {
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebuffer);
 
 	object = new Mesh();
-	object->subdivision("models/test.obj", subdivisionSteps);
+	object->subdivision("models/" + files.at(selectedModel), subdivisionSteps);
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);
@@ -505,7 +505,7 @@ void loadModel()
 	subdivisionSteps = 0;
 	delete object;
 	object = new Mesh();
-	object->subdivision(std::string("models/") + files.at(selectedModel), subdivisionSteps);
+	object->subdivision("models/" + files.at(selectedModel), subdivisionSteps);
 
 	bufferData();
 }
@@ -628,7 +628,7 @@ void display() {
 	ImGui::SliderInt("subdivision steps", &subdivisionSteps, 0, 5);
 	if (steps != subdivisionSteps)
 	{
-		object->subdivision(std::string("models/") + files.at(selectedModel), subdivisionSteps);
+		object->subdivision("models/" + files.at(selectedModel), subdivisionSteps);
 		bufferData();
 	}
 

@@ -13,7 +13,8 @@
 #include "imgui/imgui.h"
 #include "imgui/imgui_impl_glfw.h"
 #include "imgui/imgui_impl_opengl3.h"
-
+#include <filesystem>
+#include "mesh.h"
 
 using namespace std;
 
@@ -35,15 +36,6 @@ unsigned int	lightPositionLocation;
 const float RADIUS = 1.0f;
 bool flag = false;
 
-
-std::vector< glm::vec3 > loaded_vertices;
-std::vector< glm::vec3 > loaded_normals;
-
-std::vector< glm::vec3 > temp_vertices;
-std::vector< glm::vec2 > temp_uvs;
-std::vector< glm::vec3 > temp_normals;
-std::vector< unsigned int > vertIndices, uvIndices, normIndices;
-
 #define numVBOs	2
 #define numVAOs	1
 
@@ -61,6 +53,10 @@ int isWireFrame = false;
 
 unsigned int framebuffer;
 unsigned int textureColorbuffer;
+Mesh* object;
+std::vector<std::string> files;
+int selectedModel = 2;
+int subdivisionSteps = 0;
 
 struct Quaternion {
 	float cosine;
@@ -174,93 +170,6 @@ void ArcballCamera::replace() {
 
 
 ArcballCamera arcCamera;
-float starting_vertices[] = {
-		-0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f, -0.25f,
-		 0.25f,  0.25f, -0.25f,
-		 0.25f,  0.25f, -0.25f,
-		-0.25f,  0.25f, -0.25f,
-		-0.25f, -0.25f, -0.25f,
-
-		-0.25f, -0.25f,  0.25f,
-		 0.25f, -0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f,
-		-0.25f,  0.25f,  0.25f,
-		-0.25f, -0.25f,  0.25f,
-
-		-0.25f,  0.25f,  0.25f,
-		-0.25f,  0.25f, -0.25f,
-		-0.25f, -0.25f, -0.25f,
-		-0.25f, -0.25f, -0.25f,
-		-0.25f, -0.25f,  0.25f,
-		-0.25f,  0.25f,  0.25f,
-
-		 0.25f,  0.25f,  0.25f,
-		 0.25f,  0.25f, -0.25f,
-		 0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f,
-
-		-0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f, -0.25f,
-		 0.25f, -0.25f,  0.25f,
-		 0.25f, -0.25f,  0.25f,
-		-0.25f, -0.25f,  0.25f,
-		-0.25f, -0.25f, -0.25f,
-
-		-0.25f,  0.25f, -0.25f,
-		 0.25f,  0.25f, -0.25f,
-		 0.25f,  0.25f,  0.25f,
-		 0.25f,  0.25f,  0.25f,
-		-0.25f,  0.25f,  0.25f,
-		-0.25f,  0.25f, -0.25f,
-};
-
-float starting_normals[] = {
-	 0.0f,  0.0f, -1.0f,
-	 0.0f,  0.0f, -1.0f,
-	 0.0f,  0.0f, -1.0f,
-	 0.0f,  0.0f, -1.0f,
-	 0.0f,  0.0f, -1.0f,
-	 0.0f,  0.0f, -1.0f,
-
-	 0.0f,  0.0f, 1.0f,
-	 0.0f,  0.0f, 1.0f,
-	 0.0f,  0.0f, 1.0f,
-	 0.0f,  0.0f, 1.0f,
-	 0.0f,  0.0f, 1.0f,
-	 0.0f,  0.0f, 1.0f,
-
-	-1.0f,  0.0f,  0.0f,
-	-1.0f,  0.0f,  0.0f,
-	-1.0f,  0.0f,  0.0f,
-	-1.0f,  0.0f,  0.0f,
-	-1.0f,  0.0f,  0.0f,
-	-1.0f,  0.0f,  0.0f,
-
-	1.0f,  0.0f,  0.0f,
-	1.0f,  0.0f,  0.0f,
-	1.0f,  0.0f,  0.0f,
-	1.0f,  0.0f,  0.0f,
-	1.0f,  0.0f,  0.0f,
-	1.0f,  0.0f,  0.0f,
-
-	0.0f, -1.0f,  0.0f,
-	0.0f, -1.0f,  0.0f,
-	0.0f, -1.0f,  0.0f,
-	0.0f, -1.0f,  0.0f,
-	0.0f, -1.0f,  0.0f,
-	0.0f, -1.0f,  0.0f,
-
-	0.0f,  1.0f,  0.0f,
-	0.0f,  1.0f,  0.0f,
-	0.0f,  1.0f,  0.0f,
-	0.0f,  1.0f,  0.0f,
-	0.0f,  1.0f,  0.0f,
-	0.0f,  1.0f,  0.0f,
-};
 
 glm::vec3 cameraPosition = glm::vec3(2.0f, 5.0f, 5.0f);
 glm::vec3 cameraMovingX = glm::vec3(-1.0f, 0.0f, 0.0f);
@@ -464,96 +373,11 @@ void computeModelMatrix() {
 	glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
 }
 
-bool processFile(FILE* objectFile, char* starting_charachter) {
-	if (strcmp(starting_charachter, "v") == 0) {
-		glm::vec3 vert;
-		int result = fscanf(objectFile, "%f %f %f\n", &vert.x, &vert.y, &vert.z);
-		if (result > 0) temp_vertices.push_back(vert);
-	}
-	else if (strcmp(starting_charachter, "vn") == 0) {
-		glm::vec3 norm;
-		int result = fscanf(objectFile, "%f %f %f\n", &norm.x, &norm.y, &norm.z);
-		if (result > 0) temp_normals.push_back(norm);
-	}
-	else if (strcmp(starting_charachter, "vt") == 0) {
-		glm::vec2 uv;
-		int result = fscanf(objectFile, "%f %f\n", &uv.x, &uv.y);
-		if (result > 0) temp_uvs.push_back(uv);
-	}
-	else if (strcmp(starting_charachter, "f") == 0) {
-		std::string vert1, vert2, vert3;
-		unsigned int vertIndex[3], uvIndex[3], normIndex[3];
-		int result = fscanf(objectFile, "%d/%d/%d %d/%d/%d %d/%d/%d\n",
-			&vertIndex[0], &uvIndex[0], &normIndex[0], &vertIndex[1], &uvIndex[1], &normIndex[1], &vertIndex[2], &uvIndex[2], &normIndex[2]);
-		if (result < 1) {
-			printf("File can't be read with this parser \n");
-			return false;
-		}
-		for (int i = 0; i < 3; i++) {
-			vertIndices.push_back(vertIndex[i]);
-			uvIndices.push_back(uvIndex[i]);
-			normIndices.push_back(normIndex[i]);
-		}
-	}
-	return true;
-}
-
-bool loadFile() {
-
-	FILE* objectFile = fopen("test.obj", "r");
-	if (objectFile == NULL) {
-		cout << "Unable to open the file /n";
-		return false;
-	}
-
-	//Beolvassuk a filet
-	while (1) {
-
-		char starting_charachter[256];
-
-		int result = fscanf(objectFile, "%s", starting_charachter);
-		if (result == EOF)
-			break;
-
-		bool processResult = processFile(objectFile, starting_charachter);
-		if (processResult == false) {
-			cout << "Failure during file processing";
-			return false;
-		}
-	}
-
-	for (unsigned int i = 0; i < vertIndices.size(); i++) {
-		unsigned int indexV = vertIndices[i];
-		glm::vec3 vertex = temp_vertices[indexV - 1];
-		loaded_vertices.push_back(vertex);
-	}
-
-	for (unsigned int i = 0; i < normIndices.size(); i++) {
-		unsigned int indexN = normIndices[i];
-		glm::vec3 normal = temp_normals[indexN - 1];
-		loaded_normals.push_back(normal);
-	}
-
-	return true;
-}
-
-void calculateNormals()
-{
-	loaded_normals.clear();
-
-	for (int i = 0; i < loaded_vertices.size(); i += 3)
-	{
-		const glm::vec3 a = loaded_vertices[i + 2] - loaded_vertices[i];
-		const glm::vec3 b = loaded_vertices[i + 1] - loaded_vertices[i];
-		const glm::vec3 normal = glm::normalize(glm::cross(a, b)) * glm::vec3(-1, -1, -1);
-		loaded_normals.push_back(normal);
-		loaded_normals.push_back(normal);
-		loaded_normals.push_back(normal);
-	}
-}
-
-
 void init(GLFWwindow* window) {
+	std::string path = "models";
+	for (const auto& entry : std::filesystem::directory_iterator(path))
+		files.push_back(std::filesystem::path(entry.path()).filename().string());
+
 	renderingProgram = createShaderProgram();
 
 	GLuint rboId;
@@ -572,29 +396,21 @@ void init(GLFWwindow* window) {
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorbuffer, 0);
 	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, framebuffer);
 
-	bool result = loadFile();
-	calculateNormals();
+	object = new Mesh();
+	object->subdivision("models/test.obj", subdivisionSteps);
 
 	glGenBuffers(numVBOs, VBO);
 	glGenVertexArrays(numVAOs, VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
-
-	if (result == false) {
-		glBufferData(GL_ARRAY_BUFFER, sizeof(starting_vertices), starting_vertices, GL_STATIC_DRAW);
-	}
-
-	else {
-		glBufferData(GL_ARRAY_BUFFER, loaded_vertices.size() * sizeof(glm::vec3), &loaded_vertices[0], GL_STATIC_DRAW);
-	}
-
+	
 	glBindVertexArray(VAO[0]);
-
+	
+	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+	glBufferData(GL_ARRAY_BUFFER, object->vertexTriagnleList.size() * sizeof(glm::vec3), &object->vertexTriagnleList[0], GL_STATIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
-	glBufferData(GL_ARRAY_BUFFER, loaded_normals.size() * sizeof(glm::vec3), &loaded_normals[0], GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, object->normals.size() * sizeof(glm::vec3), &object->normals[0], GL_STATIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(1);
 
@@ -636,6 +452,7 @@ void init(GLFWwindow* window) {
 }
 
 void cleanUpScene() {
+	delete object;
 	ImGui_ImplOpenGL3_Shutdown();
 	ImGui_ImplGlfw_Shutdown();
 	ImGui::DestroyContext();
@@ -663,6 +480,34 @@ void handleFrambufferResize(int width, int height)
 {
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
 	framebufferSizeCallback(window, width, height);
+}
+
+void bufferData()
+{
+	glBindVertexArray(VAO[0]);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO[0]);
+	glBufferData(GL_ARRAY_BUFFER, object->vertexTriagnleList.size() * sizeof(glm::vec3), &object->vertexTriagnleList[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO[1]);
+	glBufferData(GL_ARRAY_BUFFER, object->normals.size() * sizeof(glm::vec3), &object->normals[0], GL_STATIC_DRAW);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+void loadModel()
+{
+	subdivisionSteps = 0;
+	delete object;
+	object = new Mesh();
+	object->subdivision(std::string("models/") + files.at(selectedModel), subdivisionSteps);
+
+	bufferData();
 }
 
 void display() {
@@ -708,8 +553,7 @@ void display() {
 	glUniform3fv(lightPositionLocation, 1, glm::value_ptr(lightPosition));
 	glBindVertexArray(VAO[0]);
 
-	if(loaded_vertices.size()>0) glDrawArrays(GL_TRIANGLES, 0, loaded_vertices.size());
-	else glDrawArrays(GL_TRIANGLES, 0, sizeof(starting_vertices));
+	object->draw();
 
 	glBindVertexArray(0);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -779,6 +623,32 @@ void display() {
 		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	else
 		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	int steps = subdivisionSteps;
+	ImGui::SliderInt("subdivision steps", &subdivisionSteps, 0, 5);
+	if (steps != subdivisionSteps)
+	{
+		object->subdivision(std::string("models/") + files.at(selectedModel), subdivisionSteps);
+		bufferData();
+	}
+
+	if (ImGui::TreeNode("Models"))
+	{
+		for (int n = 0; n < files.size(); n++)
+		{
+			char buf[256];
+			sprintf(buf, files.at(n).c_str(), n);
+			if (ImGui::Selectable(buf, selectedModel == n))
+			{
+				if (selectedModel != n)
+				{
+					selectedModel = n;
+					loadModel();
+				}
+			}
+		}
+		ImGui::TreePop();
+	}
 	ImGui::End();
 
 	ImGui::EndFrame();
